@@ -1,0 +1,418 @@
+!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Журнал — Schedule Bot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#3B82F6',
+            secondary: '#EC4899',
+            accent: '#10B981',
+            background: '#F8FAFC',
+            card: '#FFFFFF'
+          },
+          fontFamily: {
+            sans: ['"Inter"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          },
+          borderRadius: {
+            xl: '0.75rem',
+            '2xl': '1.25rem'
+          },
+          boxShadow: {
+            soft: '0 4px 20px rgba(0, 0, 0, 0.08)',
+            'soft-primary': '0 4px 20px rgba(59, 130, 246, 0.15)'
+          }
+        }
+      }
+    }
+  </script>
+   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .text-gradient {
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      background-image: linear-gradient(45deg, #3B82F6, #EC4899);
+    }
+    /* Остальные стили без изменений */
+    .gantt-container {
+      width: 100%;
+      overflow-x: auto;
+      margin: 2rem 0;
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+      font-family: 'Inter', sans-serif;
+    }
+
+    .gantt-header {
+      display: flex;
+      margin-left: 160px;
+      margin-bottom: 8px;
+      background: white;
+      position: sticky;
+      left: 0;
+    }
+
+    .gantt-header-item {
+      flex: 1;
+      min-width: 0;
+      text-align: center;
+      font-size: 13px;
+      color: #64748b;
+      padding: 4px 2px;
+      font-weight: 500;
+    }
+
+    .gantt-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 18px;
+      height: 32px;
+    }
+
+    .gantt-label {
+      width: 160px;
+      padding-right: 12px;
+      font-weight: 500;
+      text-align: right;
+      color: #334155;
+      position: sticky;
+      left: 0;
+      background: white;
+      padding: 6px 12px 6px 0;
+      font-size: 14px;
+    }
+
+    .gantt-bar-container {
+      flex: 1;
+      height: 16px;
+      background-color: #f8fafc;
+      border-radius: 8px;
+      position: relative;
+      min-width: 800px;
+      overflow: visible;
+    }
+
+    .gantt-bar {
+      height: 100%;
+      position: absolute;
+      top: 0;
+      border-radius: 8px 0 0 8px;
+    }
+
+    /* Цвета для разных этапов */
+    .gantt-bar-requirements {
+      background-color: rgba(59, 130, 246, 0.8);
+      left: 0%;
+      width: calc(8.33% - 4px);
+    }
+    .gantt-bar-requirements::after {
+      content: "";
+      position: absolute;
+      right: -4px;
+      top: 0;
+      width: 16px;
+      height: 16px;
+      background-color: rgba(59, 130, 246, 0.8);
+      border-radius: 50%;
+    }
+
+    .gantt-bar-development {
+      background-color: rgba(236, 72, 153, 0.8);
+      left: 8.33%;
+      width: calc(50% - 4px);
+    }
+    .gantt-bar-development::after {
+      content: "";
+      position: absolute;
+      right: -4px;
+      top: 0;
+      width: 16px;
+      height: 16px;
+      background-color: rgba(236, 72, 153, 0.8);
+      border-radius: 50%;
+    }
+
+    .gantt-bar-database {
+      background-color: rgba(16, 185, 129, 0.8);
+      left: 16.67%;
+      width: calc(58.33% - 4px);
+    }
+    .gantt-bar-database::after {
+      content: "";
+      position: absolute;
+      right: -4px;
+      top: 0;
+      width: 16px;
+      height: 16px;
+      background-color: rgba(16, 185, 129, 0.8);
+      border-radius: 50%;
+    }
+
+    .gantt-bar-testing {
+      background-color: rgba(245, 158, 11, 0.8);
+      left: 58.33%;
+      width: calc(25% - 4px);
+    }
+    .gantt-bar-testing::after {
+      content: "";
+      position: absolute;
+      right: -4px;
+      top: 0;
+      width: 16px;
+      height: 16px;
+      background-color: rgba(245, 158, 11, 0.8);
+      border-radius: 50%;
+    }
+
+    /* Сетка */
+    .gantt-grid {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-image: 
+        repeating-linear-gradient(
+          to right,
+          rgba(241, 245, 249, 0.6) 0px,
+          rgba(241, 245, 249, 0.6) 1px,
+          transparent 1px,
+          transparent calc(100% / 12)
+        );
+      pointer-events: none;
+    }
+
+    .timeline-item {
+      position: relative;
+      padding-left: 2rem;
+      margin-bottom: 1.5rem;
+    }
+    .timeline-item:before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.25rem;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 3px solid #3B82F6;
+      background: white;
+    }
+    .timeline-item-primary:before {
+      border-color: #3B82F6;
+    }
+    .timeline-item-secondary:before {
+      border-color: #EC4899;
+    }
+    .timeline-item-accent:before {
+      border-color: #10B981;
+    }
+    .timeline-item-warning:before {
+      border-color: #F59E0B;
+    }
+  </style>
+</head>
+<body class="font-sans">
+  <header class="bg-white py-5 shadow-sm sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 flex justify-between items-center">
+      <h1 class="text-2xl md:text-3xl font-bold tracking-tight">
+        <a href="index.html" class="text-gradient">Schedule Bot</a>
+      </h1>
+      <nav class="space-x-6 text-sm md:text-base font-medium">
+        <a href="index.html" class="text-slate-600 hover:text-primary transition">Главная</a>
+        <a href="about.html" class="text-slate-600 hover:text-primary transition">О проекте</a>
+        <a href="team.html" class="text-slate-600 hover:text-primary transition">Команда</a>
+        <a href="journal.html" class="text-primary font-semibold">Журнал</a>
+        <a href="resources.html" class="text-slate-600 hover:text-primary transition">Ресурсы</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-6 py-16">
+    <div class="text-center mb-16">
+      <h2 class="text-4xl font-bold text-slate-800 mb-4">Журнал разработки</h2>
+      <p class="text-lg text-slate-600 max-w-2xl mx-auto">Хронология работы над проектом и ключевые этапы</p>
+      <div class="w-20 h-1 bg-gradient-to-r from-primary to-secondary mx-auto rounded-full mt-4"></div>
+    </div>
+
+    <!-- Диаграмма Ганта -->
+    <div class="bg-white rounded-xl shadow-sm p-8 border border-slate-100 mb-12">
+      <h3 class="text-2xl font-semibold text-primary mb-6 flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        График работ
+      </h3>
+      
+<div class="gantt-container">
+  <!-- Шкала времени -->
+  <div class="gantt-header">
+    <div class="gantt-header-item">01.02</div>
+    <div class="gantt-header-item">03.02</div>
+    <div class="gantt-header-item">05.02</div>
+    <div class="gantt-header-item">10.02</div>
+    <div class="gantt-header-item">15.02</div>
+    <div class="gantt-header-item">21.02</div>
+    <div class="gantt-header-item">27.02</div>
+    <div class="gantt-header-item">04.03</div>
+    <div class="gantt-header-item">09.03</div>
+    <div class="gantt-header-item">15.03</div>
+    <div class="gantt-header-item">21.03</div>
+  </div>
+  
+  <!-- Строки -->
+  <div class="gantt-row">
+    <div class="gantt-label">Определение требований</div>
+    <div class="gantt-bar-container">
+      <div class="gantt-bar gantt-bar-requirements" style="left: 0%; width: 9.09%;"></div>
+      <div class="gantt-grid"></div>
+    </div>
+  </div>
+  
+  <div class="gantt-row">
+    <div class="gantt-label">Разработка функционала</div>
+    <div class="gantt-bar-container">
+      <div class="gantt-bar gantt-bar-development" style="left: 8.00%; width: 53.63%;"></div>
+      <div class="gantt-grid"></div>
+    </div>
+  </div>
+  
+  <div class="gantt-row">
+    <div class="gantt-label">Проектиров. БД</div>
+    <div class="gantt-bar-container">
+      <div class="gantt-bar gantt-bar-database" style="left: 17.27%; width: 52.45%;"></div>
+      <div class="gantt-grid"></div>
+    </div>
+  </div>
+
+  <div class="gantt-row">
+    <div class="gantt-label">Тестирование</div>
+    <div class="gantt-bar-container">
+      <div class="gantt-bar gantt-bar-testing" style="left: 23.27%; width: 51.72%;"></div>
+      <div class="gantt-grid"></div>
+    </div>
+  </div>
+</div>
+
+    <!-- Детализация этапов -->
+    <div class="bg-white rounded-xl shadow-sm p-8 border border-slate-100 mb-12">
+      <h3 class="text-2xl font-semibold text-primary mb-6 flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        Ключевые этапы проекта
+      </h3>
+
+      <div class="space-y-8">
+        <div class="timeline-item timeline-item-primary">
+          <h4 class="text-xl font-semibold text-primary mb-2">01.02.2025 - Определение требований</h4>
+          <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+            <p class="text-slate-700">Проведены встречи с заказчиком, определены основные требования к функционалу бота:</p>
+            <ul class="list-disc pl-5 mt-2 space-y-1 text-slate-600">
+              <li>Получение расписания по группам</li>
+              <li>Система уведомлений об изменениях</li>
+              <li>Персонализация для пользователей</li>
+              <li>Интеграция с существующими системами университета</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div class="timeline-item timeline-item-secondary">
+          <h4 class="text-xl font-semibold text-secondary mb-2">09.03.2025 - Разработка базового функционала</h4>
+          <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+            <p class="text-slate-700">Реализованы основные команды бота:</p>
+            <ul class="list-disc pl-5 mt-2 space-y-1 text-slate-600">
+              <li>Просмотр расписания на день/неделю</li>
+              <li>Добавление и изменение групп</li>
+              <li>Система аутентификации пользователей</li>
+              <li>Базовые настройки уведомлений</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div class="timeline-item timeline-item-accent">
+          <h4 class="text-xl font-semibold text-accent mb-2">15.03.2025 - Проектирование базы данных</h4>
+          <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+            <p class="text-slate-700">Разработана структура базы данных:</p>
+            <ul class="list-disc pl-5 mt-2 space-y-1 text-slate-600">
+              <li>Создана логическая модель данных</li>
+              <li>Реализована физическая модель в SQLite</li>
+              <li>Настроена синхронизация с расписанием университета</li>
+              <li>Оптимизированы запросы для быстрого доступа</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="timeline-item timeline-item-warning">
+          <h4 class="text-xl font-semibold text-amber-500 mb-2">21.03.2025 - Тестирование системы</h4>
+          <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+            <p class="text-slate-700">Проведено комплексное тестирование:</p>
+            <ul class="list-disc pl-5 mt-2 space-y-1 text-slate-600">
+              <li>Проверка всех команд бота</li>
+              <li>Тестирование на разных устройствах</li>
+              <li>Проверка обработки ошибок</li>
+              <li>Тестирование под нагрузкой</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Статистика проекта -->
+    <div class="bg-white rounded-xl shadow-sm p-8 border border-slate-100">
+      <h3 class="text-2xl font-semibold text-primary mb-6 flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        Статистика проекта
+      </h3>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="bg-primary/5 rounded-xl p-6 border border-primary/10">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="font-semibold text-primary">Команд бота</h4>
+            <span class="text-2xl font-bold text-primary">9</span>
+          </div>
+          <p class="text-sm text-slate-600">Основных команд реализовано</p>
+        </div>
+        
+        <div class="bg-secondary/5 rounded-xl p-6 border border-secondary/10">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="font-semibold text-secondary">Строк кода</h4>
+            <span class="text-2xl font-bold text-secondary">5000+</span>
+          </div>
+          <p class="text-sm text-slate-600">Написано для проекта</p>
+        </div>
+        
+        <div class="bg-accent/5 rounded-xl p-6 border border-accent/10">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="font-semibold text-accent">Пользователей</h4>
+            <span class="text-2xl font-bold text-accent">200+</span>
+          </div>
+          <p class="text-sm text-slate-600">Используют бота ежедневно</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Футер -->
+<footer class="bg-white py-8 text-center text-sm text-slate-500 border-t border-slate-100">
+  <div class="max-w-6xl mx-auto px-4">
+    &copy; 2025 Schedule Bot — 
+    <a class="text-primary hover:text-secondary transition font-medium" href="https://github.com/edducon/schedule_bot">Исходный код на GitHub</a> —
+    <a class="text-primary hover:text-secondary transition font-medium" href="https://telegra.ph/Politika-konfidencialnosti-Poli-03-23">Политика конфиденциальности</a>
+  </div>
+</footer>
+    </div>
+  </footer>
+</body>
+</html>
+
